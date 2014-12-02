@@ -11,7 +11,16 @@ define([
         "tumblr-hostname"
     ];
 
-    tumblrProvider.publish = function(publishAttributes, frontMatter, title, content, callback) {
+	tumblrProvider.getPublishLocationLink = function(attributes) {
+		return [
+			'http://',
+			attributes.blogHostname,
+			'/post/',
+			attributes.postId
+		].join('');
+	};
+
+	tumblrProvider.publish = function(publishAttributes, frontMatter, title, content, callback) {
         var labelList = publishAttributes.tags || [];
         if(frontMatter) {
             frontMatter.tags !== undefined && (labelList = frontMatter.tags);
@@ -32,7 +41,9 @@ define([
             return 'markdown';
         })();
         
-        tumblrHelper.upload(publishAttributes.blogHostname, publishAttributes.postId, labelList.join(','), format, title, content, function(error, postId) {
+        var state = (frontMatter && frontMatter.published === false) ? 'draft' : 'published';
+        var date = frontMatter && frontMatter.date;
+        tumblrHelper.upload(publishAttributes.blogHostname, publishAttributes.postId, labelList.join(','), format, state, date, title, content, function(error, postId) {
             if(error) {
                 callback(error);
                 return;

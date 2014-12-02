@@ -1,34 +1,23 @@
 define([
     "jquery",
     "underscore",
-    "classes/Extension",
+    "classes/Extension"
 ], function($, _, Extension) {
 
     var documentTitle = new Extension("documentTitle", "Document Title");
 
-    var layout = undefined;
-    documentTitle.onLayoutCreated = function(layoutParameter) {
-        layout = layoutParameter;
-    };
-
-    var fileDesc = undefined;
-    var $fileTitleNavbar = undefined;
-    var updateTitle = function(fileDescParameter) {
+    var fileDesc;
+    var $fileTitleNavbar;
+    var updateTitle = _.debounce(function(fileDescParameter) {
         if(fileDescParameter !== fileDesc) {
             return;
         }
 
         var title = fileDesc.title;
-        document.title = "StackEdit - " + title;
-        $fileTitleNavbar.html(fileDesc.composeTitle());
+        $fileTitleNavbar.html(fileDesc.composeTitle(true));
         $(".file-title").text(title);
         $(".input-file-title").val(title);
-
-        if(layout !== undefined) {
-            // Use defer to make sure UI has been updated
-            _.defer(layout.resizeAll);
-        }
-    };
+    }, 50);
 
     documentTitle.onFileSelected = function(fileDescParameter) {
         fileDesc = fileDescParameter;
@@ -40,7 +29,8 @@ define([
     documentTitle.onSyncRemoved = updateTitle;
     documentTitle.onNewPublishSuccess = updateTitle;
     documentTitle.onPublishRemoved = updateTitle;
-    
+    documentTitle.onReady = updateTitle;
+
     documentTitle.onReady = function() {
         $fileTitleNavbar = $(".file-title-navbar");
         // Add a scrolling effect on hover

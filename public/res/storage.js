@@ -1,15 +1,24 @@
 // Setup an empty localStorage or upgrade an existing one
 define([
-    "underscore",
-    "utils"
-], function(_, utils) {
+    "underscore"
+], function(_) {
 
-    var fileIndexList = utils.retrieveIndexArray("file.list");
+    function retrieveIndexArray(storeIndex) {
+        try {
+            return _.compact(localStorage[storeIndex].split(";"));
+        }
+        catch(e) {
+            localStorage[storeIndex] = ";";
+            return [];
+        }
+    }
+
+    var fileIndexList = retrieveIndexArray("file.list");
+    var currentFileIndex, settings;
 
     // localStorage versioning
-    var version = localStorage["version"];
+    var version = localStorage.version;
 
-    // Upgrade from v0 to v1
     if(version === undefined) {
 
         // Not used anymore
@@ -19,7 +28,7 @@ define([
 
         _.each(fileIndexList, function(fileIndex) {
             localStorage[fileIndex + ".publish"] = ";";
-            var syncIndexList = utils.retrieveIndexArray(fileIndex + ".sync");
+            var syncIndexList = retrieveIndexArray(fileIndex + ".sync");
             _.each(syncIndexList, function(syncIndex) {
                 localStorage[syncIndex + ".contentCRC"] = "0";
                 // We store title CRC only for Google Drive synchronization
@@ -31,7 +40,6 @@ define([
         version = "v1";
     }
 
-    // Upgrade from v1 to v2
     if(version == "v1") {
         var gdriveLastChangeId = localStorage["sync.gdrive.lastChangeId"];
         if(gdriveLastChangeId) {
@@ -49,7 +57,7 @@ define([
         var SYNC_PROVIDER_GDRIVE = "sync." + PROVIDER_GDRIVE + ".";
         var SYNC_PROVIDER_DROPBOX = "sync." + PROVIDER_DROPBOX + ".";
         _.each(fileIndexList, function(fileIndex) {
-            var syncIndexList = utils.retrieveIndexArray(fileIndex + ".sync");
+            var syncIndexList = retrieveIndexArray(fileIndex + ".sync");
             _.each(syncIndexList, function(syncIndex) {
                 var syncAttributes = {};
                 if(syncIndex.indexOf(SYNC_PROVIDER_GDRIVE) === 0) {
@@ -75,39 +83,35 @@ define([
         version = "v2";
     }
 
-    // Upgrade from v2 to v3
     if(version == "v2") {
         _.each(fileIndexList, function(fileIndex) {
             if(!_.has(localStorage, fileIndex + ".sync")) {
                 localStorage.removeItem(fileIndex + ".title");
                 localStorage.removeItem(fileIndex + ".publish");
                 localStorage.removeItem(fileIndex + ".content");
-                utils.removeIndexFromArray("file.list", fileIndex);
+                localStorage["file.list"].replace(";" + fileIndex + ";", ";");
             }
         });
         version = "v3";
     }
 
-    // Upgrade from v3 to v4
     if(version == "v3") {
-        var currentFileIndex = localStorage["file.current"];
+        currentFileIndex = localStorage["file.current"];
         if(currentFileIndex !== undefined && localStorage["file.list"].indexOf(";" + currentFileIndex + ";") === -1) {
             localStorage.removeItem("file.current");
         }
         version = "v4";
     }
 
-    // Upgrade from v4 to v5
     if(version == "v4") {
         // Recreate GitHub token
         localStorage.removeItem("githubToken");
         version = "v5";
     }
 
-    // Upgrade from v5 to v6
     if(version == "v5") {
         _.each(fileIndexList, function(fileIndex) {
-            var publishIndexList = utils.retrieveIndexArray(fileIndex + ".publish");
+            var publishIndexList = retrieveIndexArray(fileIndex + ".publish");
             _.each(publishIndexList, function(publishIndex) {
                 var publishAttributes = JSON.parse(localStorage[publishIndex]);
                 if(publishAttributes.provider == "gdrive") {
@@ -121,9 +125,8 @@ define([
         version = "v6";
     }
 
-    // Upgrade from v6 to v7
     if(version == "v6") {
-        var currentFileIndex = localStorage["file.current"];
+        currentFileIndex = localStorage["file.current"];
         if(currentFileIndex !== undefined) {
             localStorage[currentFileIndex + ".selectTime"] = new Date().getTime();
             localStorage.removeItem("file.current");
@@ -131,34 +134,9 @@ define([
         version = "v7";
     }
 
-    // Upgrade from v7 to v8
-    if(version == "v7") {
-        _.each(_.keys(localStorage), function(key) {
-            var matchResult = key.match(/(file\.\S+\.)\S+/);
-            if(matchResult) {
-                if(!_.has(localStorage, matchResult[1] + 'title')) {
-                    localStorage.removeItem(key);
-                }
-            }
-        });
-        version = "v8";
-    }
-
-    // Upgrade from v8 to v9
-    if(version == "v8") {
-        _.each(_.keys(localStorage), function(key) {
-            var matchResult = key.match(/file\.\S+\.(editorEnd|editorStart)/);
-            if(matchResult) {
-                localStorage.removeItem(key);
-            }
-        });
-        version = "v9";
-    }
-
-    // Upgrade from v9 to v10
-    if(version == "v9") {
+    if(version == "v7" || version == "v8" || version == "v9") {
         if(_.has(localStorage, 'settings')) {
-            var settings = JSON.parse(localStorage.settings);
+            settings = JSON.parse(localStorage.settings);
             delete settings.editorFontFamily;
             delete settings.editorFontSize;
             settings.template && (settings.template = settings.template.replace('http://benweet.github.io/stackedit/css/main-min.css', 'http://benweet.github.io/stackedit/res-min/themes/default.css'));
@@ -167,10 +145,9 @@ define([
         version = "v10";
     }
 
-    // Upgrade from v10 to v11
     if(version == "v10") {
         if(_.has(localStorage, 'settings')) {
-            var settings = JSON.parse(localStorage.settings);
+            settings = JSON.parse(localStorage.settings);
             ((settings.extensionSettings || {}).markdownExtra || {}).extensions && settings.extensionSettings.markdownExtra.extensions.push('smartypants');
             settings.sshProxy == 'http://stackedit-ssh-proxy.herokuapp.com/' && (settings.sshProxy = 'https://stackedit-ssh-proxy.herokuapp.com/');
             settings.template && (settings.template = settings.template.replace('http://benweet.github.io/stackedit/lib/', 'https://stackedit.io/libs/'));
@@ -184,5 +161,120 @@ define([
         version = "v11";
     }
 
-    localStorage["version"] = version;
+    if(version == "v11") {
+        // Force new theme by using themeV3 variable
+        localStorage.removeItem("theme");
+        if(_.has(localStorage, 'settings')) {
+            settings = JSON.parse(localStorage.settings);
+            // Force new font
+            delete settings.editorFontFamily;
+            delete settings.editorFontSize;
+            settings.template && (settings.template = settings.template.replace('https://stackedit.io/res-min/themes/default.css', 'https://stackedit.io/res-min/themes/base.css'));
+            settings.pdfTemplate && (settings.pdfTemplate = settings.pdfTemplate.replace('https://stackedit.io/res-min/themes/default.css', 'https://stackedit.io/res-min/themes/base.css'));
+            localStorage.settings = JSON.stringify(settings);
+        }
+        version = "v12";
+    }
+
+    if(version == "v12" || version == "v13") {
+        if(_.has(localStorage, 'settings')) {
+            settings = JSON.parse(localStorage.settings);
+            // Have to reset the font because of Monaco issue with ACE
+            delete settings.editorFontFamily;
+            localStorage.settings = JSON.stringify(settings);
+        }
+        version = "v14";
+    }
+
+    if(version == "v14") {
+        if(_.has(localStorage, 'settings')) {
+            settings = JSON.parse(localStorage.settings);
+            settings.template && (settings.template = settings.template.replace('https://stackedit.io/res-min/themes/default.css', 'https://stackedit.io/res-min/themes/base.css'));
+            settings.pdfTemplate && (settings.pdfTemplate = settings.pdfTemplate.replace('https://stackedit.io/res-min/themes/default.css', 'https://stackedit.io/res-min/themes/base.css'));
+            localStorage.settings = JSON.stringify(settings);
+        }
+        version = "v15";
+    }
+
+    if(version == "v15") {
+        localStorage.removeItem('gdrivePermissions');
+        if(_.has(localStorage, 'gdrive.lastChangeId')) {
+            localStorage['google.gdrive0.gdrive.lastChangeId'] = localStorage['gdrive.lastChangeId'];
+            localStorage.removeItem('gdrive.lastChangeId');
+        }
+        if(_.has(localStorage, 'settings')) {
+            settings = JSON.parse(localStorage.settings);
+            if(((settings.extensionSettings || {}).markdownExtra || {}).extensions) {
+                settings.extensionSettings.markdownExtra.extensions.push('newlines');
+                settings.extensionSettings.markdownExtra.extensions.push('strikethrough');
+            }
+            localStorage.settings = JSON.stringify(settings);
+        }
+        version = "v16";
+    }
+
+    if(version == "v16" || version == "v17") {
+        localStorage.removeItem('focusMode');
+        localStorage.removeItem('mode');
+        localStorage.removeItem('gdrive.state');
+        localStorage.removeItem('google.picasa0.permissions');
+        localStorage.removeItem('google.picasa0.userId');
+        if(_.has(localStorage, 'settings')) {
+            settings = JSON.parse(localStorage.settings);
+            delete settings.shortcuts;
+            delete settings.editorFontFamily;
+            delete settings.editorFontSize;
+            delete settings.maxWidth;
+            localStorage.settings = JSON.stringify(settings);
+        }
+        version = "v18";
+    }
+
+	if(version == 'v18') {
+		if(_.has(localStorage, 'settings')) {
+			settings = JSON.parse(localStorage.settings);
+			((settings.extensionSettings || {}).markdownExtra || {}).diagrams = true;
+			localStorage.settings = JSON.stringify(settings);
+		}
+		version = "v19";
+	}
+
+	if(version == 'v19') {
+		// Force new theme by using themeV4 variable
+		localStorage.removeItem("themeV3");
+		// Force welcome tour
+		localStorage.removeItem("welcomeTour");
+		if(_.has(localStorage, 'settings')) {
+			settings = JSON.parse(localStorage.settings);
+			// New web services
+			delete settings.pdfTemplate;
+			delete settings.pdfPageSize;
+			delete settings.sshProxy;
+			localStorage.settings = JSON.stringify(settings);
+		}
+		version = "v20";
+	}
+
+	if(version == 'v20') {
+		if(_.has(localStorage, 'settings')) {
+			settings = JSON.parse(localStorage.settings);
+			// Force use of text/plain
+			delete settings.markdownMimeType;
+			localStorage.settings = JSON.stringify(settings);
+		}
+		version = "v21";
+	}
+
+	if(version == "v21") {
+		if(_.has(localStorage, 'settings')) {
+			settings = JSON.parse(localStorage.settings);
+			settings.template && (settings.template = settings.template.replace('https://stackedit.io/libs/MathJax/', 'https://cdn.mathjax.org/mathjax/latest/'));
+			settings.pdfTemplate && (settings.pdfTemplate = settings.pdfTemplate.replace('/libs/MathJax/', '/res/bower-libs/MathJax/'));
+			localStorage.settings = JSON.stringify(settings);
+		}
+		version = "v22";
+	}
+
+	localStorage.version = version;
+    return localStorage;
 });

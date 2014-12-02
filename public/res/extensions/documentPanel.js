@@ -9,7 +9,7 @@ define([
 
     var documentPanel = new Extension("documentPanel", 'Document Panel');
 
-    var fileMgr = undefined;
+    var fileMgr;
     documentPanel.onFileMgrCreated = function(fileMgrParameter) {
         fileMgr = fileMgrParameter;
     };
@@ -19,7 +19,7 @@ define([
         ' class="list-group-item folder clearfix"',
         ' data-folder-index="<%= folderDesc.folderIndex %>"',
         ' data-toggle="collapse"',
-        ' data-target=".document-panel .file-list.<%= id %>">',
+        ' data-target=".file-list.<%= id %>">',
         '   <div class="pull-right file-count">',
         '       <%= _.size(folderDesc.fileList) %>',
         '   </div>',
@@ -32,20 +32,18 @@ define([
     var documentEltTmpl = [
         '<a href="#"',
         ' class="list-group-item file<%= fileDesc === selectedFileDesc ? " active" : "" %>"',
-        ' data-file-index="<%= fileDesc.fileIndex %>"',
-        ' data-toggle="collapse"',
-        ' data-target=".document-panel">',
+        ' data-file-index="<%= fileDesc.fileIndex %>">',
         '   <%= fileDesc.composeTitle() %>',
         '</a>',
     ].join('');
 
-    var panelElt = undefined;
-    var documentListElt = undefined;
-    var $documentListElt = undefined;
-    var documentListFilteredElt = undefined;
-    var $documentListFilteredElt = undefined;
-    var selectedFileDesc = undefined;
-    var refreshPanel = function() {
+    var panelElt;
+    var documentListElt;
+    var $documentListElt;
+    var documentListFilteredElt;
+    var $documentListFilteredElt;
+    var selectedFileDesc;
+    var refreshPanel = _.debounce(function() {
 
         // List orphan documents
         var orphanDocumentList = _.filter(fileSystem, function(fileDesc) {
@@ -84,7 +82,7 @@ define([
         });
 
         documentListElt.innerHTML = documentListHtml;
-        
+
         // Create filtered list
         var documentListFilteredHtml = _.chain(fileSystem).sortBy(function(fileDesc) {
             return fileDesc.title.toLowerCase();
@@ -97,19 +95,8 @@ define([
         documentListFilteredHtml = '<ul class="nav">' + documentListFilteredHtml + '</ul>';
 
         documentListFilteredElt.innerHTML = documentListFilteredHtml;
-        
-        // Add click listeners
-        _.each(panelElt.querySelectorAll('.file'), function(fileElt) {
-            var $fileElt = $(fileElt);
-            $fileElt.click(function(e) {
-                var fileDesc = fileSystem[$fileElt.data('fileIndex')];
-                if(fileDesc && fileDesc !== selectedFileDesc) {
-                    fileMgr.selectFile(fileDesc);
-                }
-            });
-        });
 
-    };
+    }, 50);
 
     documentPanel.onFileSelected = function(fileDesc) {
         selectedFileDesc = fileDesc;
@@ -126,14 +113,14 @@ define([
     documentPanel.onFoldersChanged = refreshPanel;
 
     // Filter for search input in file selector
-    var panelContentElt = undefined;
+    var panelContentElt;
     var previousFilterValue = '';
     function filterFiles(filterValue) {
         if(filterValue == previousFilterValue) {
             return;
         }
         previousFilterValue = filterValue;
-        
+
         // Scroll to top
         panelContentElt.scrollTop = 0;
 
@@ -161,32 +148,35 @@ define([
         $documentListElt = $(documentListElt);
         documentListFilteredElt = panelElt.querySelector('.document-list-filtered');
         $documentListFilteredElt = $(documentListFilteredElt);
-        
+
         // Open current folder before opening
-        $(panelElt).on('show.bs.collapse', function(e) {
-            if(e.target === panelElt) {
-                var folderDesc = selectedFileDesc.folder;
-                if(folderDesc !== undefined) {
-                    $(panelElt.querySelector('.file-list.' + folderDesc.folderIndex.replace('.', ''))).collapse('show');
-                }
+        $(panelElt).on('show.layout.toggle', function() {
+            var folderDesc = selectedFileDesc.folder;
+            if(folderDesc !== undefined) {
+                $(panelElt.querySelector('.file-list.' + folderDesc.folderIndex.replace('.', ''))).collapse('show');
             }
-        }).on('shown.bs.collapse', function(e) {
-            if(e.target === panelElt) {
-                // Unset the filter
-                $filterInputElt.val('');
-                filterFiles('');
-                
-                // Scroll to the active file
-                var activeElt = documentListElt.querySelector('.file.active');
-                activeElt && (panelContentElt.scrollTop += activeElt.getBoundingClientRect().top - 120);
+        }).on('shown.layout.toggle', function() {
+            // Scroll to the active file
+            var activeElt = documentListElt.querySelector('.file.active');
+            activeElt && (panelContentElt.scrollTop += activeElt.getBoundingClientRect().top - 240);
+        }).on('hidden.layout.toggle', function() {
+            // Unset the filter
+            $filterInputElt.val('');
+            filterFiles('');
+        }).on('click', '.file', function() {
+            var $fileElt = $(this);
+            var fileDesc = fileSystem[$fileElt.data('fileIndex')];
+            if(fileDesc && fileDesc !== selectedFileDesc) {
+                fileMgr.selectFile(fileDesc);
             }
         });
-        
+
         // Search bar input change
         var $filterInputElt = $(panelElt.querySelector('.search-bar .form-control'));
         $filterInputElt.bind("propertychange keyup input paste", function() {
             filterFiles($filterInputElt.val());
         });
+
     };
 
     return documentPanel;

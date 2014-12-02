@@ -9,8 +9,8 @@ define([
     // buttonPublish.settingsBlock = '<p>Adds a "Publish document" button in the
     // navigation bar.</p>';
 
-    var $button = undefined;
-    var currentFileDesc = undefined;
+    var $button;
+    var currentFileDesc;
     var publishRunning = false;
     var hasPublications = false;
     var isOffline = false;
@@ -27,17 +27,17 @@ define([
         }
     }
 
-    var publisher = undefined;
+    var publisher;
     buttonPublish.onPublisherCreated = function(publisherParameter) {
         publisher = publisherParameter;
     };
 
     buttonPublish.onCreateButton = function() {
-        var button = crel('button', {
+        var button = crel('a', {
             class: 'btn btn-success button-publish',
-            title: 'Publish document'
+            title: 'Update document publication'
         }, crel('i', {
-            class: 'icon-share'
+            class: 'icon-upload'
         }));
         $button = $(button).click(function() {
             if(!$button.hasClass("disabled")) {
@@ -71,6 +71,10 @@ define([
     buttonPublish.onFileSelected = function(fileDesc) {
         currentFileDesc = fileDesc;
         checkPublication();
+    };
+
+    buttonPublish.onReady = function() {
+        $(".action-update-publication").click(publisher.publish);
     };
 
     buttonPublish.onPublishRemoved = checkPublication;

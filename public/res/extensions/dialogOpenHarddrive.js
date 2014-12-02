@@ -1,26 +1,26 @@
 define([
     "jquery",
     "underscore",
+    "constants",
     "utils",
     "classes/Extension",
     "toMarkdown",
-    "config",
-], function($, _, utils, Extension, toMarkdown) {
+], function($, _, constants, utils, Extension, toMarkdown) {
 
     var dialogOpenHarddrive = new Extension("dialogOpenHarddrive", 'Dialog "Open from"');
 
-    var fileMgr = undefined;
+    var fileMgr;
     dialogOpenHarddrive.onFileMgrCreated = function(fileMgrParameter) {
         fileMgr = fileMgrParameter;
     };
 
-    var eventMgr = undefined;
+    var eventMgr;
     dialogOpenHarddrive.onEventMgrCreated = function(eventMgrParameter) {
         eventMgr = eventMgrParameter;
     };
 
-    var contentWrapper = undefined;
-    var converter = undefined;
+    var contentWrapper;
+    var converter;
     var htmlContentWrapper = function(content) {
         return converter.makeMd(content);
     };
@@ -53,7 +53,7 @@ define([
                     fileMgr.selectFile(fileDesc);
                 };
             })(file);
-            var blob = file.slice(0, IMPORT_FILE_MAX_CONTENT_SIZE);
+            var blob = file.slice(0, constants.IMPORT_FILE_MAX_CONTENT_SIZE);
             reader.readAsText(blob);
         });
     }

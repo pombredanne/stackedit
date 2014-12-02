@@ -1,22 +1,23 @@
 define([
     "jquery",
     "underscore",
+    "constants",
     "utils",
+    "storage",
     "classes/Extension",
     "classes/FolderDescriptor",
     "folderList",
-    "fileSystem",
-    "config"
-], function($, _, utils, Extension, FolderDescriptor, folderList, fileSystem) {
+    "fileSystem"
+], function($, _, constants, utils, storage, Extension, FolderDescriptor, folderList, fileSystem) {
 
     var documentManager = new Extension("documentManager", 'Document Manager', false, true);
 
-    var fileMgr = undefined;
+    var fileMgr;
     documentManager.onFileMgrCreated = function(fileMgrParameter) {
         fileMgr = fileMgrParameter;
     };
 
-    var eventMgr = undefined;
+    var eventMgr;
     documentManager.onEventMgrCreated = function(eventMgrParameter) {
         eventMgr = eventMgrParameter;
     };
@@ -38,22 +39,22 @@ define([
         '<button class="btn btn-default button-delete" title="Delete"><i class="icon-trash"></i></button>',
         '<button class="btn btn-default button-rename" title="Rename"><i class="icon-pencil"></i></button>',
         '<div class="name"><%= fileDesc.composeTitle() %></div>',
-        '<input type="text" class="input-rename form-control hide"></li>',
+        '<input type="text" class="input-rename form-control hide"></li>'
     ].join('');
     var selectFolderEltTmpl = [
         '<a href="#" class="list-group-item folder clearfix" data-folder-index="<%= folderDesc.folderIndex %>">',
         '<div class="pull-right file-count"><%= _.size(folderDesc.fileList) %></div>',
         '<div class="name"><i class="icon-forward"></i> ',
-        '<%= folderDesc.name %></div></a>',
+        '<%= folderDesc.name %></div></a>'
     ].join('');
     var selectedDocumentEltTmpl = [
         '<li class="list-group-item file clearfix">',
-        '<div class="name"><%= fileDesc.composeTitle() %></div></li>',
+        '<div class="name"><%= fileDesc.composeTitle() %></div></li>'
     ].join('');
 
-    var isVisible = false;
-    var modalElt = undefined;
-    var documentListElt = undefined;
+    var isVisible;
+    var modalElt;
+    var documentListElt;
     var selectedDocumentList = [];
     var selectedFolderList = [];
     function doSelect() {
@@ -72,7 +73,7 @@ define([
         });
     }
 
-    var selectedDocumentListElt = undefined;
+    var selectedDocumentListElt;
     function doDeleteConfirmation() {
         // Don't ask user confirmation if we delete only folders
         if(_.size(selectedDocumentList) === 0) {
@@ -85,7 +86,7 @@ define([
             return fileDesc.title.toLowerCase();
         }).reduce(function(result, fileDesc) {
             return result + _.template(selectedDocumentEltTmpl, {
-                fileDesc: fileDesc,
+                fileDesc: fileDesc
             });
         }, '').value();
         selectedDocumentListElt.innerHTML = '<ul class="file-list nav">' + selectedDocumentListHtml + '</ul>';
@@ -105,26 +106,24 @@ define([
         // Delete folders
         _.each(selectedFolderList, function(folderDesc) {
             utils.removeIndexFromArray("folder.list", folderDesc.folderIndex);
-            localStorage.removeItem(folderDesc.folderIndex + ".name");
-            localStorage.removeItem(folderDesc.folderIndex + ".files");
             delete folderList[folderDesc.folderIndex];
         });
         eventMgr.onFoldersChanged();
     }
 
-    var $liMoveElt = undefined;
-    var $liDeleteElt = undefined;
-    function doActiveButtons() {
+    var $liMoveElt;
+    var $liDeleteElt;
+    var doActiveButtons = _.debounce(function() {
         doSelect();
 
         $liMoveElt.toggleClass('disabled', _.size(folderList) === 0 || _.size(selectedDocumentList) === 0);
         $liDeleteElt.toggleClass('disabled', _.size(selectedFolderList) === 0 && _.size(selectedDocumentList) === 0);
-    }
+    }, 50);
 
-    var orphanDocumentList = undefined;
-    var $documentCountElt = undefined;
-    var $folderCountElt = undefined;
-    var refreshManager = function() {
+    var orphanDocumentList;
+    var $documentCountElt;
+    var $folderCountElt;
+    var refreshManager = _.debounce(function() {
         if(isVisible === false) {
             return;
         }
@@ -142,13 +141,13 @@ define([
 
         // Root folder
         var documentListHtml = [
-            '<a href="#" class="list-group-item folder clearfix" data-toggle="collapse" data-target=".modal-document-manager .file-list.root-folder">',
+            '<a href="#" class="list-group-item folder root-folder clearfix" data-toggle="collapse" data-target=".modal-document-manager .file-list.root-folder">',
             '<label class="checkbox" title="Select"><input type="checkbox"></label>',
             '<div class="pull-right file-count">',
             _.size(orphanDocumentList),
             '</div>',
             '<div class="name"><i class="icon-folder"></i> ',
-            'ROOT folder</div></a>',
+            'ROOT folder</div></a>'
         ].join('');
 
         // Add orphan documents
@@ -156,7 +155,7 @@ define([
             return fileDesc.title.toLowerCase();
         }).reduce(function(result, fileDesc) {
             return result + _.template(documentEltTmpl, {
-                fileDesc: fileDesc,
+                fileDesc: fileDesc
             });
         }, '').value();
         orphanListHtml = orphanListHtml && '<ul class="nav">' + orphanListHtml + '</ul>';
@@ -170,7 +169,7 @@ define([
                 return fileDesc.title.toLowerCase();
             }).reduce(function(result, fileDesc) {
                 return result + _.template(documentEltTmpl, {
-                    fileDesc: fileDesc,
+                    fileDesc: fileDesc
                 });
             }, '').value();
             fileListHtml = fileListHtml && '<ul class="nav">' + fileListHtml + '</ul>';
@@ -182,114 +181,23 @@ define([
         });
 
         documentListElt.innerHTML = documentListHtml;
-
-        // Set delete event listeners
-        _.each(documentListElt.querySelectorAll('.button-delete'), function(buttonElt) {
-            var $buttonElt = $(buttonElt);
-            $buttonElt.click(function(e) {
-                e.stopPropagation();
-                var $parentElt = $buttonElt.parent();
-                var folderDesc = folderList[$parentElt.data('folderIndex')];
-                var fileDesc = fileSystem[$parentElt.data('fileIndex')];
-                selectedDocumentList = [];
-                selectedFolderList = [];
-                if(folderDesc) {
-                    selectedFolderList.push(folderDesc);
-                    selectedDocumentList = folderDesc.fileList;
-                }
-                else if(fileDesc) {
-                    selectedDocumentList.push(fileDesc);
-                }
-                doDeleteConfirmation();
-            });
-        });
-
-        // Set rename event listeners
-        _.each(documentListElt.querySelectorAll('.button-rename'), function(buttonElt) {
-            var $buttonElt = $(buttonElt);
-            $buttonElt.click(function(e) {
-                e.stopPropagation();
-                var $parentElt = $buttonElt.parent();
-                var name = undefined;
-                var folderDesc = folderList[$parentElt.data('folderIndex')];
-                var fileDesc = fileSystem[$parentElt.data('fileIndex')];
-                if(folderDesc) {
-                    name = folderDesc.name;
-                }
-                else if(fileDesc) {
-                    name = fileDesc.title;
-                }
-                $parentElt.find('.name').addClass('hide');
-                $parentElt.find('.input-rename').removeClass('hide').val(name)[0].select();
-            });
-        });
-        _.each(documentListElt.querySelectorAll('.input-rename'), function(inputElt) {
-            var $inputElt = $(inputElt);
-            function rename() {
-                var parentElt = $inputElt.parent();
-                var name = $.trim($inputElt.val());
-                var folderDesc = folderList[parentElt.data('folderIndex')];
-                var fileDesc = fileSystem[parentElt.data('fileIndex')];
-                if(name && folderDesc && name != folderDesc.name) {
-                    folderDesc.name = name;
-                    eventMgr.onFoldersChanged();
-                }
-                else if(name && fileDesc && name != fileDesc.title) {
-                    fileDesc.title = name;
-                    eventMgr.onTitleChanged(fileDesc);
-                }
-                else {
-                    $inputElt.addClass('hide');
-                    parentElt.find('.name').removeClass('hide');
-                }
-            }
-            $inputElt.blur(function() {
-                rename();
-            }).keyup(function(e) {
-                if(e.keyCode == 13) {
-                    rename();
-                    e.stopPropagation();
-                }
-                if(e.keyCode == 27) {
-                    $inputElt.val('');
-                    rename();
-                    e.stopPropagation();
-                }
-            });
-        });
-
-        // Set file checkbox behavior
-        _.each(documentListElt.querySelectorAll('.file .checkbox'), function(checkboxElt) {
-            var $checkboxElt = $(checkboxElt);
-            $checkboxElt.click(function(e) {
-                e.stopPropagation();
-            }).find('[type=checkbox]').change(function() {
-                $checkboxElt.parents('.list-group').find('.folder [type=checkbox]').prop('checked', false);
-            });
-        });
-
-        // Set folder checkbox behavior
-        _.each(documentListElt.querySelectorAll('.folder .checkbox'), function(checkboxElt) {
-            var $checkboxElt = $(checkboxElt);
-            $checkboxElt.click(function(e) {
-                e.stopPropagation();
-            }).find('[type=checkbox]').change(function() {
-                $checkboxElt.parent().next().find('[type=checkbox]').prop('checked', this.checked);
-            });
-        });
-
-        // Set checkbox event listeners
-        $(documentListElt.querySelectorAll('[type=checkbox]')).change(doActiveButtons);
-    };
+    }, 50);
 
     documentManager.onFileCreated = refreshManager;
     documentManager.onFileDeleted = refreshManager;
-    documentManager.onTitleChanged = refreshManager;
     documentManager.onSyncExportSuccess = refreshManager;
     documentManager.onSyncRemoved = refreshManager;
     documentManager.onNewPublishSuccess = refreshManager;
     documentManager.onPublishRemoved = refreshManager;
     documentManager.onFoldersChanged = refreshManager;
+
+    documentManager.onTitleChanged = function(fileDesc) {
+        if(isVisible === false) {
+            return;
+        }
+        $(documentListElt).find('[data-file-index="' + fileDesc.fileIndex + '"] .name').html(fileDesc.composeTitle()).removeClass('hide');
+        $(documentListElt.querySelectorAll('.input-rename')).addClass('hide');
+    };
 
     documentManager.onReady = function() {
         modalElt = document.querySelector('.modal-document-manager');
@@ -303,21 +211,26 @@ define([
         $(modalElt).on('show.bs.modal', function() {
             isVisible = true;
             refreshManager();
+            // Open root folder
+            setTimeout(function() {
+                $(documentListElt.querySelectorAll('.root-folder')).click();
+            }, 250);
         }).on('hide.bs.modal', function() {
             isVisible = false;
+            documentListElt.innerHTML = '';
         });
 
         // Create folder action
         $(modalElt.querySelectorAll('.action-create-folder')).click(function() {
-            var folderIndex = undefined;
+            var folderIndex;
             do {
-                folderIndex = "folder." + utils.randomString();
+                folderIndex = "folder." + utils.id();
             } while (_.has(folderList, folderIndex));
 
-            localStorage[folderIndex + ".name"] = DEFAULT_FOLDER_NAME;
+            storage[folderIndex + ".name"] = constants.DEFAULT_FOLDER_NAME;
 
             // Create the folder descriptor
-            var folderDesc = new FolderDescriptor(folderIndex, DEFAULT_FOLDER_NAME);
+            var folderDesc = new FolderDescriptor(folderIndex, constants.DEFAULT_FOLDER_NAME);
 
             // Add the index to the folder list
             utils.appendIndexToArray("folder.list", folderIndex);
@@ -325,16 +238,18 @@ define([
             eventMgr.onFoldersChanged();
 
             // Edit the name when folder has just been created
-            var renameButtonElt = $(modalElt.querySelector('[data-folder-index="' + folderIndex + '"] .button-rename')).click();
-            modalElt.scrollTop += renameButtonElt.offset().top - 50;
+            setTimeout(function() {
+                var renameButtonElt = $(modalElt.querySelector('[data-folder-index="' + folderIndex + '"] .button-rename')).click();
+                modalElt.scrollTop += renameButtonElt.offset().top - 50;
+            }, 60);
         });
 
         // Selection dropdown menu actions
         $(modalElt.querySelectorAll('.action-select-all')).click(function() {
-            $(documentListElt.querySelectorAll('input[type="checkbox"]')).prop('checked', true);
+            $(documentListElt.querySelectorAll('.folder input[type="checkbox"]')).prop('checked', true).change();
         });
         $(modalElt.querySelectorAll('.action-unselect-all')).click(function() {
-            $(documentListElt.querySelectorAll('input[type="checkbox"]')).prop('checked', false);
+            $(documentListElt.querySelectorAll('.folder input[type="checkbox"]')).prop('checked', false).change();
         });
 
         // Delete selection actions
@@ -371,13 +286,13 @@ define([
                 _.size(orphanDocumentList),
                 '</div>',
                 '<div class="name"><i class="icon-forward"></i> ',
-                'ROOT folder</div></a>',
+                'ROOT folder</div></a>'
             ].join('');
             selectFolderListHtml += _.chain(folderList).sortBy(function(folderDesc) {
                 return folderDesc.name.toLowerCase();
             }).reduce(function(result, folderDesc) {
                 return result + _.template(selectFolderEltTmpl, {
-                    folderDesc: folderDesc,
+                    folderDesc: folderDesc
                 });
             }, '').value();
             selectFolderListElt.innerHTML = selectFolderListHtml;
@@ -408,6 +323,85 @@ define([
         $(modalElt.querySelectorAll('.action-cancel')).click(function() {
             $(modalElt.querySelectorAll('.document-list')).removeClass('hide');
             $(modalElt.querySelectorAll('.confirm-delete, .choose-folder, .selected-document-list, .select-folder-list')).addClass('hide');
+        });
+
+        $(documentListElt).on('click', '.button-delete', function(evt) {
+            evt.stopPropagation();
+            var $buttonElt = $(this);
+            var $parentElt = $buttonElt.parent();
+            var folderDesc = folderList[$parentElt.data('folderIndex')];
+            var fileDesc = fileSystem[$parentElt.data('fileIndex')];
+            selectedDocumentList = [];
+            selectedFolderList = [];
+            if(folderDesc) {
+                selectedFolderList.push(folderDesc);
+                selectedDocumentList = folderDesc.fileList;
+            }
+            else if(fileDesc) {
+                selectedDocumentList.push(fileDesc);
+            }
+            doDeleteConfirmation();
+
+        }).on('click', '.button-rename', function(evt) {
+            evt.stopPropagation();
+            var $parentElt = $(this.parentNode);
+            var name;
+            var folderDesc = folderList[$parentElt.data('folderIndex')];
+            var fileDesc = fileSystem[$parentElt.data('fileIndex')];
+            if(folderDesc) {
+                name = folderDesc.name;
+            }
+            else if(fileDesc) {
+                name = fileDesc.title;
+            }
+            $parentElt.find('.name').addClass('hide');
+            $parentElt.find('.input-rename').removeClass('hide').val(name)[0].select();
+
+        }).on('blur keyup', '.input-rename', function(evt) {
+            var $inputElt = $(this);
+            function rename() {
+                var parentElt = $inputElt.parent();
+                var name = $.trim($inputElt.val());
+                var folderDesc = folderList[parentElt.data('folderIndex')];
+                var fileDesc = fileSystem[parentElt.data('fileIndex')];
+                if(name && folderDesc && name != folderDesc.name) {
+                    folderDesc.name = name;
+                    eventMgr.onFoldersChanged();
+                }
+                else if(name && fileDesc && name != fileDesc.title) {
+                    fileDesc.title = name;
+                    eventMgr.onTitleChanged(fileDesc);
+                }
+                else {
+                    $inputElt.addClass('hide');
+                    parentElt.find('.name').removeClass('hide');
+                }
+            }
+            // Blur event
+            if(evt.keyCode === undefined) {
+                rename();
+            }
+            // Enter key event
+            else if(evt.keyCode == 13) {
+                rename();
+                evt.stopPropagation();
+            }
+            // Escape key event
+            else if(evt.keyCode == 27) {
+                $inputElt.val('');
+                rename();
+                evt.stopPropagation();
+            }
+        }).on('click', '.file .checkbox', function(evt) {
+            evt.stopPropagation();
+        }).on('change', '.file .checkbox input', function() {
+            $(this).parents('.file-list').prev().find('.checkbox input').prop('checked', false);
+            doActiveButtons();
+        }).on('click', '.folder .checkbox', function(evt) {
+            evt.stopPropagation();
+        }).on('change', '.folder .checkbox input', function() {
+            $(this).parents('.folder').next().find('.checkbox input').prop('checked', this.checked);
+            doActiveButtons();
         });
     };
 

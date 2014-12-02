@@ -11,13 +11,24 @@ define([
         "blogger-url"
     ];
 
-    bloggerProvider.publish = function(publishAttributes, frontMatter, title, content, callback) {
+	bloggerProvider.getPublishLocationLink = function(attributes) {
+		return [
+			'https://www.blogger.com/blogger.g?blogID=',
+			attributes.blogId,
+			'#editor/target=post;postID=',
+			attributes.postId
+		].join('');
+	};
+
+	bloggerProvider.publish = function(publishAttributes, frontMatter, title, content, callback) {
         var labelList = publishAttributes.labelList || [];
         if(frontMatter) {
             frontMatter.tags !== undefined && (labelList = frontMatter.tags);
         }
         _.isString(labelList) && (labelList = _.compact(labelList.split(/[\s,]/)));
-        googleHelper.uploadBlogger(publishAttributes.blogUrl, publishAttributes.blogId, publishAttributes.postId, labelList, title, content, function(error, blogId, postId) {
+        var isDraft = frontMatter && frontMatter.published === false;
+        var publishDate = frontMatter && frontMatter.date;
+        googleHelper.uploadBlogger(publishAttributes.blogUrl, publishAttributes.blogId, publishAttributes.postId, labelList, isDraft, publishDate, title, content, function(error, blogId, postId) {
             if(error) {
                 callback(error);
                 return;

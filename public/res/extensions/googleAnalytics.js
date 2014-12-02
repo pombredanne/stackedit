@@ -1,18 +1,19 @@
+/*globals _gaq */
 define([
     "jquery",
     "underscore",
+    "constants",
     "utils",
     "classes/Extension",
     "settings",
-    "config",
-], function($, _, utils, Extension, settings) {
+], function($, _, constants, utils, Extension, settings) {
 
     var googleAnalytics = new Extension("googleAnalytics", "Google Analytics", true);
     googleAnalytics.settingsBlock = '<p>Sends anonymous statistics about usage and errors to help improve StackEdit.</p>';
 
     var isLoaded = false;
     var isOffline = false;
-    window["_gaq"] = [];
+    window._gaq = [];
 
     var init = function() {
         if(isLoaded === false && isOffline === false) {
@@ -47,7 +48,7 @@ define([
         // First configure GA
         _gaq.push([
             '_setAccount',
-            GOOGLE_ANALYTICS_ACCOUNT_ID
+            constants.GOOGLE_ANALYTICS_ACCOUNT_ID
         ]);
         trackPageView();
 
@@ -56,7 +57,7 @@ define([
             '_trackEvent',
             "About",
             'version',
-            VERSION
+            constants.VERSION
         ]);
         
         // Collect informations about user settings
@@ -69,8 +70,14 @@ define([
         _gaq.push([
             '_trackEvent',
             "Settings",
+            'editMode',
+            "" + settings.editMode
+        ]);
+        _gaq.push([
+            '_trackEvent',
+            "Settings",
             'theme',
-            "" + theme
+            "" + window.themeV4
         ]);
         _gaq.push([
             '_trackEvent',
@@ -81,34 +88,39 @@ define([
         _gaq.push([
             '_trackEvent',
             "Settings",
-            'editorFontFamily',
-            "" + settings.editorFontFamily
+            'editorFontClass',
+            "" + settings.editorFontClass
         ]);
         _gaq.push([
-                   '_trackEvent',
-                   "Settings",
-                   'editorFontSize',
-                   "" + settings.editorFontSize
-                   ]);
+            '_trackEvent',
+            "Settings",
+            'fontSizeRatio',
+            "" + settings.fontSizeRatio
+        ]);
+        _gaq.push([
+            '_trackEvent',
+            "Settings",
+            'maxWidthRatio',
+            "" + settings.maxWidthRatio
+        ]);
+        _gaq.push([
+            '_trackEvent',
+            "Settings",
+            'cursorFocusRatio',
+            "" + settings.cursorFocusRatio
+        ]);
         // Check if user has removed back links
         _gaq.push([
             '_trackEvent',
             "Settings",
             'defaultContent backlink',
-            "" + (settings.defaultContent.indexOf(MAIN_URL) !== -1)
+            "" + (settings.defaultContent.indexOf(constants.MAIN_URL) !== -1)
         ]);
         _gaq.push([
             '_trackEvent',
             "Settings",
             'commitMsg backlink',
-            "" + (settings.commitMsg.indexOf(MAIN_URL) !== -1)
-        ]);
-        // Check if user has changed sshProxy
-        _gaq.push([
-            '_trackEvent',
-            "Settings",
-            'sshProxy unchanged',
-            "" + (settings.sshProxy == SSH_PROXY_URL)
+            "" + (settings.commitMsg.indexOf(constants.MAIN_URL) !== -1)
         ]);
         // Check if extensions have been disabled
         _.each(settings.extensionSettings, function(config, extensionId) {
@@ -164,7 +176,7 @@ define([
         _gaq.push([
             '_trackEvent',
             'Sync',
-            'SyncImport',
+            'SyncImport'
         ]);
         _gaq.push([
             '_trackEvent',
@@ -178,7 +190,7 @@ define([
         _gaq.push([
             '_trackEvent',
             'Sync',
-            'SyncExport',
+            'SyncExport'
         ]);
         _gaq.push([
             '_trackEvent',

@@ -1,6 +1,8 @@
-chrome-app*
 .project
+.idea
 .settings
 node_modules
 Thumbs.db
+.DS_Store
+stackedit.iml
 public/res/bower-libs

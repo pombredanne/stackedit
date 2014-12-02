@@ -25,12 +25,12 @@ define([
         newConfig.syncShortcut = utils.getInputTextValue("#input-sync-shortcut", event);
     };
 
-    var synchronizer = undefined;
+    var synchronizer;
     buttonSync.onSynchronizerCreated = function(synchronizerParameter) {
         synchronizer = synchronizerParameter;
     };
 
-    var $button = undefined;
+    var $button;
     var syncRunning = false;
     var isOffline = false;
     // Enable/disable the button
@@ -56,9 +56,9 @@ define([
     };
 
     buttonSync.onCreateButton = function() {
-        var button = crel('button', {
+        var button = crel('a', {
             class: 'btn btn-success button-synchronize',
-            title: 'Synchronize all'
+            title: 'Force synchronization Ctrl/Cmd+S'
         }, crel('i', {
             class: 'icon-refresh'
         }));
@@ -87,11 +87,14 @@ define([
         isOffline = isOfflineParameter;
         updateButtonState();
     };
-    
+
     buttonSync.onReady = function() {
         mousetrap.bind(buttonSync.config.syncShortcut, function(e) {
             synchronizer.sync() && (lastSync = utils.currentTime);
             e.preventDefault();
+        });
+        $(".action-force-synchronization").click(function() {
+            synchronizer.sync() && (lastSync = utils.currentTime);
         });
     };
 
